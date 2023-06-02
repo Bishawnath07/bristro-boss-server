@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const app = express();
 const jwt = require('jsonwebtoken');
+const stripe = require('stripe')(process.env.PAYMENT_SECRET_KEY)
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config();
 const port = process.env.PORT || 5000;
@@ -129,7 +130,7 @@ async function run() {
       res.send(result)
     })
 
-    app.delete('menu/:id', verifyJWT, verifyAdmin, async (req, res) => {
+    app.delete('/menu/:id', verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const result = await menuCollection.deleteOne(query);
@@ -175,6 +176,17 @@ async function run() {
       res.send(result)
     })
 
+       // payment related api
+       app.post('/payments', verifyJWT, async(req, res) =>{
+        const payment = req.body;
+        const insertResult = await paymentCollection.insertOne(payment);
+  
+        const query = {_id: { $in: payment.cartItems.map(id => new ObjectId(id)) }}
+        const deleteResult = await cartCollection.deleteMany(query)
+  
+        res.send({ insertResult, deleteResult});
+      })
+  
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
